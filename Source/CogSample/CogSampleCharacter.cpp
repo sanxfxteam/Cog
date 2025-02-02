@@ -292,6 +292,7 @@ void ACogSampleCharacter::RegisterToAbilitySystemEvents()
     // Register to Tag change events
     //----------------------------------------
     GhostTagDelegateHandle = AbilitySystem->RegisterGameplayTagEvent(Tag_Status_Ghost, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &ACogSampleCharacter::OnGhostTagNewOrRemoved);
+    GhostTagDelegateHandle = AbilitySystem->RegisterGameplayTagEvent(Tag_Status_Invisible, EGameplayTagEventType::NewOrRemoved).AddUObject(this, &ACogSampleCharacter::OnInvisibleTagNewOrRemoved);
 
     //----------------------------------------
     // Register to Attribute change events
@@ -323,6 +324,7 @@ void ACogSampleCharacter::UnregisterFromAbilitySystemEvents()
     // Unregister to Tags events
     //----------------------------------------
     AbilitySystem->UnregisterGameplayTagEvent(GhostTagDelegateHandle, Tag_Status_Ghost, EGameplayTagEventType::NewOrRemoved);
+    AbilitySystem->UnregisterGameplayTagEvent(GhostTagDelegateHandle, Tag_Status_Invisible, EGameplayTagEventType::NewOrRemoved);
 
     //----------------------------------------
     // Unregister to GameplayEffect events
@@ -370,8 +372,18 @@ void ACogSampleCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
         int32 AbilityIndex = 0;
         for (const FActiveAbilityInfo& AbilityInfo : ActiveAbilities)
         {
-            EnhancedInputComponent->BindAction(AbilityInfo.InputAction, ETriggerEvent::Started, this, &ACogSampleCharacter::OnAbilityInputStarted, AbilityIndex);
-            EnhancedInputComponent->BindAction(AbilityInfo.InputAction, ETriggerEvent::Completed, this, &ACogSampleCharacter::OnAbilityInputCompleted, AbilityIndex);
+            EnhancedInputComponent->BindActionValueLambda(AbilityInfo.InputAction, ETriggerEvent::Started, 
+                [this, &AbilityInfo, AbilityIndex](const FInputActionValue& InputActionValue)
+                {
+                    OnAbilityInputStarted(AbilityInfo.InputAction, InputActionValue, AbilityIndex);
+                });
+
+            EnhancedInputComponent->BindActionValueLambda(AbilityInfo.InputAction, ETriggerEvent::Completed, 
+                [this, &AbilityInfo, AbilityIndex](const FInputActionValue& InputActionValue)
+                {
+                    OnAbilityInputCompleted(AbilityInfo.InputAction, InputActionValue, AbilityIndex);
+                });
+
             AbilityIndex++;
         }
 
@@ -385,9 +397,13 @@ void ACogSampleCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void ACogSampleCharacter::OnAbilityInputStarted(const FInputActionValue& Value, int32 Index)
+void ACogSampleCharacter::OnAbilityInputStarted(const UInputAction* InputAction, const FInputActionValue& Value, int32 Index)
 {
     COG_LOG_OBJECT(LogCogInput, ELogVerbosity::Verbose, this, TEXT("%d"), Index);
+
+#if ENABLE_COG
+    FCogDebugPlot::PlotEventStart(this, "Input", InputAction->GetFName());
+#endif
 
     if (ActiveAbilityHandles.IsValidIndex(Index) == false)
     {
@@ -403,6 +419,12 @@ void ACogSampleCharacter::OnAbilityInputStarted(const FInputActionValue& Value, 
 
     Spec->InputPressed = true;
 
+    UGameplayAbility* Ability = Spec->GetPrimaryInstance();
+    if (Ability == nullptr)
+    {
+        return;
+    }
+
     //-----------------------------------------------------
     // Replicate button press if ability is already active
     //-----------------------------------------------------
@@ -414,7 +436,7 @@ void ACogSampleCharacter::OnAbilityInputStarted(const FInputActionValue& Value, 
             AbilitySystem->ServerSetInputPressed(Spec->Handle);
         }
         AbilitySystem->AbilitySpecInputPressed(*Spec);
-        AbilitySystem->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, Spec->Handle, Spec->ActivationInfo.GetActivationPredictionKey());
+        AbilitySystem->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputPressed, Spec->Handle, Ability->GetCurrentActivationInfo().GetActivationPredictionKey());
     }
     else
     {
@@ -423,9 +445,13 @@ void ACogSampleCharacter::OnAbilityInputStarted(const FInputActionValue& Value, 
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void ACogSampleCharacter::OnAbilityInputCompleted(const FInputActionValue& Value, int32 Index)
+void ACogSampleCharacter::OnAbilityInputCompleted(const UInputAction* InputAction, const FInputActionValue& Value, int32 Index)
 {
     COG_LOG_OBJECT(LogCogInput, ELogVerbosity::Verbose, this, TEXT("%d"), Index);
+
+#if ENABLE_COG
+    FCogDebugPlot::PlotEventStop(this, "Input", InputAction->GetFName());
+#endif
 
     if (ActiveAbilityHandles.IsValidIndex(Index) == false)
     {
@@ -441,7 +467,7 @@ void ACogSampleCharacter::OnAbilityInputCompleted(const FInputActionValue& Value
 
     Spec->InputPressed = false;
 
-    UGameplayAbility* Ability= Spec->GetPrimaryInstance();
+    UGameplayAbility* Ability = Spec->GetPrimaryInstance();
     if (Ability == nullptr)
     {
         return;
@@ -458,7 +484,7 @@ void ACogSampleCharacter::OnAbilityInputCompleted(const FInputActionValue& Value
     }
 
     AbilitySystem->AbilitySpecInputReleased(*Spec);
-    AbilitySystem->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, Spec->Handle, Spec->ActivationInfo.GetActivationPredictionKey());
+    AbilitySystem->InvokeReplicatedEvent(EAbilityGenericReplicatedEvent::InputReleased, Spec->Handle, Ability->GetCurrentActivationInfo().GetActivationPredictionKey());
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -659,6 +685,20 @@ void ACogSampleCharacter::OnGhostTagNewOrRemoved(const FGameplayTag InTag, int32
             }
         }
     }
+
+#endif //UE_WITH_CHEAT_MANAGER
+}
+
+
+// ----------------------------------------------------------------------------------------------------------------
+void ACogSampleCharacter::OnInvisibleTagNewOrRemoved(const FGameplayTag InTag, int32 NewCount)
+{
+#if UE_WITH_CHEAT_MANAGER
+
+    check(InTag == Tag_Status_Invisible);
+
+    bool bHasInvisibleTags = NewCount > 0;
+    SetActorHiddenInGame(bHasInvisibleTags);
 
 #endif //UE_WITH_CHEAT_MANAGER
 }

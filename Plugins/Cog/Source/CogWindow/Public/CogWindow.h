@@ -38,10 +38,7 @@ public:
     virtual void GameTick(float DeltaTime);
 
     /**  */
-    virtual float GetMainMenuWidgetWidth(int32 SubWidgetIndex, float MaxWidth) { return -1.0f; }
-
-    /**  */
-    virtual void RenderMainMenuWidget(int32 SubWidgetIndex, float Width) {}
+    virtual void RenderMainMenuWidget() {}
 
     ImGuiID GetID() const { return ID; }
 
@@ -53,13 +50,13 @@ public:
     /** The short name of the window. "Effect" if the window full name is "Gameplay.Character.Effect" */
     const FString& GetName() const { return Name; }
 
-    AActor* GetSelection() { return CurrentSelection.Get(); }
+    AActor* GetSelection() const { return CurrentSelection.Get(); }
 
     void SetSelection(AActor* Actor);
 
     bool GetIsVisible() const { return bIsVisible; }
 
-    void SetIsVisible(bool Value) { bIsVisible = Value; }
+    void SetIsVisible(bool Value);
 
     bool HasWidget() const { return bHasWidget; }
 
@@ -76,12 +73,12 @@ public:
     UCogWindowManager* GetOwner() const { return Owner; }
 
     template<class T>
-    T* GetConfig() { return Cast<T>(GetConfig(T::StaticClass())); }
+    T* GetConfig() const { return Cast<T>(GetConfig(T::StaticClass())); }
 
     UCogCommonConfig* GetConfig(const TSubclassOf<UCogCommonConfig> ConfigClass) const;
 
     template<class T>
-    const T* GetAsset() { return Cast<T>(GetAsset(T::StaticClass())); }
+    const T* GetAsset() const { return Cast<T>(GetAsset(T::StaticClass())); }
 
     const UObject* GetAsset(const TSubclassOf<UObject> AssetClass) const;
 
@@ -103,8 +100,12 @@ protected:
 
     virtual bool CheckEditorVisibility();
     
+    virtual void OnWindowVisibilityChanged(bool NewVisibility) { }
+
     virtual void OnSelectionChanged(AActor* OldSelection, AActor* NewSelection) {}
 
+    virtual bool IsWindowRenderedInMainMenu();
+    
     APawn* GetLocalPlayerPawn() const;
 
     APlayerController* GetLocalPlayerController() const;
@@ -113,7 +114,7 @@ protected:
 
 protected:
 
-    bool bHideMenu = false;
+    bool bShowMenu = true;
 
     bool bNoPadding = false;
 

@@ -22,15 +22,23 @@ public:
 
     static UPlayerInput* GetPlayerInput(const UWorld& World);
 
-    static bool IsKeyEventHandled(UWorld* World, const FKeyEvent& KeyEvent);
+    static bool IsTopPriorityKey(UWorld* InWorld, const FKey& InKey);
+
+    static bool IsTopPriorityKeyEvent(UWorld* InWorld, const FKeyEvent& InKeyEvent);
 
     static bool WasKeyInfoJustPressed(APlayerController& PlayerController, const FCogImGuiKeyInfo& KeyInfo);
 
     static bool IsCheckBoxStateMatchingValue(ECheckBoxState CheckBoxState, bool bValue);
 
-    static bool IsKeyEventMatchingKeyInfo(const FKeyEvent& KeyEvent, const FCogImGuiKeyInfo& InputChord);
+    static bool IsCheckBoxStateMatchingKeyBindModifier(ECheckBoxState InCheckBoxState, bool InRequireModifier, bool InIgnoreModifier);
+
+    static bool IsKeyEventMatchingKeyInfo(const FKeyEvent& InKeyEvent, const FCogImGuiKeyInfo& InKeyInfo);
+
+    static bool IsKeyBindMatchingKeyInfo(const FKeyBind& InKeyBind, const FCogImGuiKeyInfo& InKeyInfo);
 
     static bool IsKeyEventMatchingKeyBind(const FKeyEvent& KeyEvent, const FKeyBind& KeyBind);
+
+    static bool IsKeyInfoPressed(const UPlayerInput* PlayerInput, const FCogImGuiKeyInfo& InKeyInfo);
 
     static ECheckBoxState MakeCheckBoxState(uint8 RequireValue, uint8 IgnoreValue);
 
@@ -54,15 +62,22 @@ public:
 
     static FString CommandToString(const UPlayerInput* PlayerInput, const FString& Command);
 
-    static FString KeyBindToString(const FKeyBind& KeyBind);
+    static FString KeyBindToString(const FKeyBind& InKeyBind);
+
+    static FString KeyInfoToString(const FCogImGuiKeyInfo& InKeyInfo);
 
     static bool IsMouseInsideMainViewport();
 
     static bool IsKeyBoundToCommand(const UPlayerInput* InPlayerInput, const FKeyEvent& KeyEvent);
+
+    static void SetShortcuts(const UWorld& World, const TArray<FCogImGuiKeyInfo>& InShortcuts, bool InDisableCommandsConflictingWithShortcuts);
 
     template<typename T, std::enable_if_t<(sizeof(T) <= sizeof(ImWchar)), T>* = nullptr>
     static ImWchar CastInputChar(T Char)
     {
         return static_cast<ImWchar>(Char);
     }
+
+private:
+    static TArray<FCogImGuiKeyInfo> CogShortcuts; 
 };

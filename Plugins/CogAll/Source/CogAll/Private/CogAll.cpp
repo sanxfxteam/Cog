@@ -2,7 +2,6 @@
 
 #include "CogAbilityWindow_Abilities.h"
 #include "CogAbilityWindow_Attributes.h"
-#include "CogAbilityWindow_Cheats.h"
 #include "CogAbilityWindow_Effects.h"
 #include "CogAbilityWindow_Pools.h"
 #include "CogAbilityWindow_Tags.h"
@@ -10,14 +9,17 @@
 #include "CogAbilityWindow_Tweaks.h"
 #include "CogAIWindow_BehaviorTree.h"
 #include "CogAIWindow_Blackboard.h"
+#include "CogEngineWindow_Cheats.h"
 #include "CogEngineWindow_CollisionTester.h"
 #include "CogEngineWindow_CollisionViewer.h"
 #include "CogEngineWindow_CommandBindings.h"
+#include "CogEngineWindow_Console.h"
 #include "CogEngineWindow_DebugSettings.h"
 #include "CogEngineWindow_ImGui.h"
 #include "CogEngineWindow_Inspector.h"
 #include "CogEngineWindow_LogCategories.h"
 #include "CogEngineWindow_Metrics.h"
+#include "CogEngineWindow_NetImgui.h"
 #include "CogEngineWindow_NetEmulation.h"
 #include "CogEngineWindow_OutputLog.h"
 #include "CogEngineWindow_Plots.h"
@@ -50,6 +52,8 @@ void Cog::AddAllWindows(UCogWindowManager& CogWindowManager)
 
     CogWindowManager.AddWindow<FCogEngineWindow_CommandBindings>("Engine.Command Bindings");
 
+    CogWindowManager.AddWindow<FCogEngineWindow_Console>("Engine.Console");
+
     CogWindowManager.AddWindow<FCogEngineWindow_DebugSettings>("Engine.Debug Settings");
 
     CogWindowManager.AddWindow<FCogEngineWindow_ImGui>("Engine.ImGui");
@@ -65,11 +69,13 @@ void Cog::AddAllWindows(UCogWindowManager& CogWindowManager)
 
     CogWindowManager.AddWindow<FCogEngineWindow_LogCategories>("Engine.Log Categories");
 
+    CogWindowManager.AddWindow<FCogEngineWindow_Metrics>("Engine.Metrics");
+
     CogWindowManager.AddWindow<FCogEngineWindow_NetEmulation>("Engine.Net Emulation");
 
-    CogWindowManager.AddWindow<FCogEngineWindow_OutputLog>("Engine.Output Log");
+    CogWindowManager.AddWindow<FCogEngineWindow_NetImgui>("Engine.Net ImGui");
 
-    CogWindowManager.AddWindow<FCogEngineWindow_Metrics>("Engine.Metrics");
+    CogWindowManager.AddWindow<FCogEngineWindow_OutputLog>("Engine.Output Log");
 
     CogWindowManager.AddWindow<FCogEngineWindow_Plots>("Engine.Plots");
 
@@ -100,7 +106,7 @@ void Cog::AddAllWindows(UCogWindowManager& CogWindowManager)
 
     CogWindowManager.AddWindow<FCogAbilityWindow_BlockedTags>("Gameplay.Blocking Tags");
 
-    CogWindowManager.AddWindow<FCogAbilityWindow_Cheats>("Gameplay.Cheats");
+    CogWindowManager.AddWindow<FCogEngineWindow_Cheats>("Gameplay.Cheats");
 
     CogWindowManager.AddWindow<FCogAbilityWindow_Effects>("Gameplay.Effects");
 

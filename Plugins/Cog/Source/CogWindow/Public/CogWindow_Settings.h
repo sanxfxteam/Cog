@@ -2,7 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "CogCommonConfig.h"
+#include "CogImguiKeyInfo.h"
 #include "CogWindow.h"
+#include "GameFramework/PlayerInput.h"
 #include "CogWindow_Settings.generated.h"
 
 class UCogEngineConfig_Settings;
@@ -30,9 +32,20 @@ protected:
 
     virtual void ResetConfig() override;
 
+    virtual void RenderShortcut(const char* Label, FCogImGuiKeyInfo& KeyInfo);
+
     TObjectPtr<UCogWindowConfig_Settings> Config = nullptr;
 };
 
+//--------------------------------------------------------------------------------------------------------------------------
+UENUM()
+enum class ECogWidgetAlignment
+{
+    Left = 0,
+    Center = 1,
+    Right = 2,
+    Manual = 3
+};
 
 //--------------------------------------------------------------------------------------------------------------------------
 UCLASS(Config = Cog)
@@ -75,6 +88,30 @@ public:
     UPROPERTY(Config)
     bool bNavEnableKeyboard = false;
 
+    UPROPERTY(Config)
+    bool bDisableConflictingCommands = true;
+
+    UPROPERTY(Config)
+    bool bDisableShortcutsWhenImGuiWantTextInput = false;
+
+    UPROPERTY(Config)
+    ECogWidgetAlignment WidgetAlignment = ECogWidgetAlignment::Right;
+
+    UPROPERTY(Config)
+    bool ShowWidgetBorders = false;
+    
+    UPROPERTY(Config)
+    FCogImGuiKeyInfo ToggleImGuiInputShortcut =  FCogImGuiKeyInfo(EKeys::F1);
+
+    UPROPERTY(Config)
+    FCogImGuiKeyInfo ToggleSelectionShortcut = FCogImGuiKeyInfo(EKeys::F5);
+
+    UPROPERTY(Config)
+    TArray<FCogImGuiKeyInfo> LoadLayoutShortcuts = { FCogImGuiKeyInfo(EKeys::F2), FCogImGuiKeyInfo(EKeys::F3), FCogImGuiKeyInfo(EKeys::F4), FCogImGuiKeyInfo()};
+
+    UPROPERTY(Config)
+    TArray<FCogImGuiKeyInfo> SaveLayoutShortcuts = { FCogImGuiKeyInfo(), FCogImGuiKeyInfo(), FCogImGuiKeyInfo(), FCogImGuiKeyInfo()};
+    
     //UPROPERTY(Config)
     //bool bNavEnableGamepad = false;
 
@@ -95,7 +132,15 @@ public:
         bShareMouse = false;
         bShareKeyboard = false;
         bNavEnableKeyboard = false;
+         bDisableConflictingCommands = true;
+        bDisableShortcutsWhenImGuiWantTextInput = false;
         //bNavEnableGamepad = false;
         //bNavNoCaptureInput = true;
+
+
+        ToggleImGuiInputShortcut =  FCogImGuiKeyInfo(EKeys::F1);
+        ToggleSelectionShortcut = FCogImGuiKeyInfo(EKeys::F5);
+        LoadLayoutShortcuts = { FCogImGuiKeyInfo(EKeys::F2), FCogImGuiKeyInfo(EKeys::F3), FCogImGuiKeyInfo(EKeys::F4), FCogImGuiKeyInfo()};
+        SaveLayoutShortcuts = { FCogImGuiKeyInfo(), FCogImGuiKeyInfo(), FCogImGuiKeyInfo(), FCogImGuiKeyInfo()};
     }
 };

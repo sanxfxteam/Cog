@@ -310,9 +310,9 @@ protected:
 
 	void Look(const FInputActionValue& Value);
 
-    void OnAbilityInputStarted(const FInputActionValue& Value, int32 Index);
+    void OnAbilityInputStarted(const UInputAction* InputAction, const FInputActionValue& Value, int32 Index);
 
-    void OnAbilityInputCompleted(const FInputActionValue& Value, int32 Index);
+    void OnAbilityInputCompleted(const UInputAction* InputAction, const FInputActionValue& Value, int32 Index);
 
     void ActivateItem(const FInputActionValue& Value, int32 Index);
 
@@ -337,6 +337,8 @@ protected:
     void OnGameplayEffectRemoved(const FActiveGameplayEffect& RemovedGameplayEffect);
 
     void OnGhostTagNewOrRemoved(const FGameplayTag InTag, int32 NewCount);
+
+    void OnInvisibleTagNewOrRemoved(const FGameplayTag InTag, int32 NewCount);
 
     void OnScaleAttributeChanged(const FOnAttributeChangeData& Data);
 

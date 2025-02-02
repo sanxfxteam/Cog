@@ -5,6 +5,7 @@
 #include "CogWindowManager.h"
 #include "CogWindowWidgets.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "InputCoreTypes.h"
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -76,18 +77,8 @@ void FCogWindow_Settings::RenderContent()
         {
             Context.SetEnableInput(bEnableInput);
         }
-        ImGui::SetItemTooltip("Enable ImGui inputs. When enabled the ImGui menu is shown and inputs are forwarded to ImGui.");
-
-        const auto ShortcutText = StringCast<ANSICHAR>(*FCogImguiInputHelper::CommandToString(PlayerInput, UCogWindowManager::ToggleInputCommand));
-        const float ShortcutWidth = (ShortcutText.Get() != nullptr && ShortcutText.Get()[0]) ? ImGui::CalcTextSize(ShortcutText.Get(), NULL).x : 0.0f;
-        if (ShortcutWidth > 0.0f)
-        {
-            ImGui::SameLine();
-            ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - ShortcutWidth);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-            ImGui::Text("%s", ShortcutText.Get());
-            ImGui::PopStyleColor();
-        }
+        FCogWindowWidgets::ItemTooltipWrappedText("Enable ImGui inputs. When enabled the ImGui menu is shown and inputs are forwarded to ImGui.");
+        FCogWindowWidgets::MenuItemShortcut("EnableInputShortcut", FCogImguiInputHelper::KeyInfoToString(Config->ToggleImGuiInputShortcut));
 
         //-------------------------------------------------------------------------------------------
         bool bShareKeyboard = Context.GetShareKeyboard();
@@ -95,7 +86,7 @@ void FCogWindow_Settings::RenderContent()
         {
             Context.SetShareKeyboard(bShareKeyboard);
         }
-        ImGui::SetItemTooltip("Forward the keyboard inputs to the game when ImGui does not need them.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Forward the keyboard inputs to the game when ImGui does not need them.");
 
         //-------------------------------------------------------------------------------------------
         bool bShareMouse = Context.GetShareMouse();
@@ -103,7 +94,7 @@ void FCogWindow_Settings::RenderContent()
         {
             Context.SetShareMouse(bShareMouse);
         }
-        ImGui::SetItemTooltip("Forward mouse inputs to the game when ImGui does not need them.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Forward mouse inputs to the game when ImGui does not need them.");
 
         //-------------------------------------------------------------------------------------------
         if (bShareMouse == false)
@@ -116,7 +107,7 @@ void FCogWindow_Settings::RenderContent()
         {
             Context.SetShareMouseWithGameplay(bShareMouseWithGameplay);
         }
-        ImGui::SetItemTooltip("When disabled, mouse inputs are only forwarded to game menus. "
+        FCogWindowWidgets::ItemTooltipWrappedText("When disabled, mouse inputs are only forwarded to game menus. "
         "When enabled, mouse inputs are also forwarded to the gameplay. Note that this mode: \n" 
         "  - Force the cursor to be visible.\n"
         "  - Prevent the interaction of Cog's transform gizmos.\n"
@@ -129,13 +120,23 @@ void FCogWindow_Settings::RenderContent()
 
         //-------------------------------------------------------------------------------------------
         ImGui::CheckboxFlags("Keyboard Navigation", &IO.ConfigFlags, ImGuiConfigFlags_NavEnableKeyboard);
-        ImGui::SetItemTooltip("Use the keyboard to navigate in ImGui windows with the following keys : Tab, Directional Arrows, Space, Enter.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Use the keyboard to navigate in ImGui windows with the following keys : Tab, Directional Arrows, Space, Enter.");
+
+        //-------------------------------------------------------------------------------------------
+        //ImGui::CheckboxFlags("Gamepad Navigation", &IO.ConfigFlags, ImGuiConfigFlags_NavEnableGamepad);
+        //FCogWindowWidgets::ItemTooltipWrappedText("Use the gamepad to navigate in ImGui windows.");
+
+        //-------------------------------------------------------------------------------------------
+        ImGui::Checkbox("Disable Conflicting Commands", &Config->bDisableConflictingCommands);
+        FCogWindowWidgets::ItemTooltipWrappedText("Disable the existing Unreal command shortcuts mapped to same shortcuts Cog is using. Typically, if the F1 shortcut is used to toggle Inputs, the Unreal wireframe command will get disabled.");
+
+        //-------------------------------------------------------------------------------------------
+        ImGui::Checkbox("Disable shortcuts when ImGui want text input", &Config->bDisableShortcutsWhenImGuiWantTextInput);
+        FCogWindowWidgets::ItemTooltipWrappedText("Disable Cog's shortcuts (ToggleInput, ToggleSelectionMode, LoadLayout, ...) when ImGui want text input."
+				" This can be required if the shortcuts are mapped by keys generating a text input (letters, or Backspace for example)."
+                " This is not required if the shortcuts are set to keys such as F1 or F2.");
     }
-
-    //-------------------------------------------------------------------------------------------
-    //ImGui::CheckboxFlags("Gamepad Navigation", &IO.ConfigFlags, ImGuiConfigFlags_NavEnableGamepad);
-    //ImGui::SetItemTooltip("Use the gamepad to navigate in ImGui windows.");
-
+    
     //-------------------------------------------------------------------------------------------
     if (ImGui::CollapsingHeader("Window", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -143,19 +144,19 @@ void FCogWindow_Settings::RenderContent()
         {
             FCogImguiHelper::SetFlags(IO.ConfigFlags, ImGuiConfigFlags_ViewportsEnable, Config->bEnableViewports);
         }
-        ImGui::SetItemTooltip("Enable moving ImGui windows outside of the main viewport.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Enable moving ImGui windows outside of the main viewport.");
 
         //-------------------------------------------------------------------------------------------
         ImGui::Checkbox("Compact Mode", &Config->bCompactMode);
-        ImGui::SetItemTooltip("Enable compact mode.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Enable compact mode.");
     
         //-------------------------------------------------------------------------------------------
         ImGui::Checkbox("Show Windows In Main Menu", &Config->bShowWindowsInMainMenu);
-        ImGui::SetItemTooltip("Show the content of the windows when hovering the window menu item.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Show the content of the windows when hovering the window menu item.");
 
         //-------------------------------------------------------------------------------------------
         ImGui::Checkbox("Show Help", &Config->bShowHelp);
-        ImGui::SetItemTooltip("Show windows help on the window menu items.");
+        FCogWindowWidgets::ItemTooltipWrappedText("Show windows help on the window menu items.");
 
         //-------------------------------------------------------------------------------------------
         FCogWindowWidgets::SetNextItemToShortWidth();
@@ -172,6 +173,92 @@ void FCogWindow_Settings::RenderContent()
         }
     }
 
+    //-------------------------------------------------------------------------------------------
+    if (ImGui::CollapsingHeader("Widgets (?)", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        FCogWindowWidgets::ItemTooltipWrappedText("Widgets appear in the main menu bar.");
+        
+        ImGui::Checkbox("Show Widget Borders", &Config->ShowWidgetBorders);
+        FCogWindowWidgets::ItemTooltipWrappedText("Should a border be visible between widgets.");
+        
+        FCogWindowWidgets::SetNextItemToShortWidth();
+        FCogWindowWidgets::ComboboxEnum("Widgets Alignment", Config->WidgetAlignment);
+        FCogWindowWidgets::ItemTooltipWrappedText("How the widgets should be aligned in the main menu bar.");
+
+        if (ImGui::BeginChild("Widgets", ImVec2(0, ImGui::GetFontSize() * 10), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY, ImGuiWindowFlags_MenuBar))
+        {
+            if (ImGui::BeginMenuBar())
+            {
+                ImGui::TextUnformatted("Widgets visibility and ordering");
+                ImGui::SameLine();
+                FCogWindowWidgets::HelpMarker("Drag and drop the widget names to reorder them.");
+                ImGui::EndMenuBar();
+            }
+            
+            TArray<FCogWindow*>& Widgets = GetOwner()->Widgets;
+            for (int32 i = 0; i < Widgets.Num(); ++i)
+            {
+                FCogWindow* Window = Widgets[i];
+
+                ImGui::PushID(i);
+
+                bool Visible = Window->GetIsWidgetVisible();
+                if (ImGui::Checkbox("##Visibility", &Visible))
+                {
+                    Window->SetIsWidgetVisible(Visible);
+                }
+                
+                ImGui::SameLine();
+                ImGui::Selectable(TCHAR_TO_ANSI(*Window->GetName()), false, ImGuiSelectableFlags_SpanAvailWidth);
+                {
+                    Window->SetIsWidgetVisible(Visible);
+                }
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+                }
+
+                if (ImGui::IsItemActive() && ImGui::IsItemHovered() == false)
+                {
+                    const int iNext = i + (ImGui::GetMouseDragDelta(0).y < 0.f ? -1 : 1);
+                    if (iNext >= 0 && iNext < Widgets.Num())
+                    {
+                        Widgets[i] = Widgets[iNext];
+                        Widgets[iNext] = Window;
+                        ImGui::ResetMouseDragDelta();
+                    }
+                }
+
+                ImGui::PopID();
+            }
+        }
+        ImGui::EndChild();
+    }
+    
+    //-------------------------------------------------------------------------------------------
+    if (ImGui::CollapsingHeader("Shortcuts", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        RenderShortcut("Toggle ImGui Input", Config->ToggleImGuiInputShortcut);
+        RenderShortcut("Toggle Selection", Config->ToggleSelectionShortcut);
+        
+        ImGui::Separator();
+
+        char Buffer[32];
+        
+        for (int32 i = 0; i < Config->LoadLayoutShortcuts.Num(); ++i)
+        {
+            ImFormatString(Buffer, IM_ARRAYSIZE(Buffer), "Load Layout  %d", i + 1);
+            RenderShortcut(Buffer, Config->LoadLayoutShortcuts[i]);
+        }
+
+        ImGui::Separator();
+        for (int32 i = 0; i < Config->SaveLayoutShortcuts.Num(); ++i)
+        {
+            ImFormatString(Buffer, IM_ARRAYSIZE(Buffer), "Save Layout  %d", i + 1);
+            RenderShortcut(Buffer, Config->SaveLayoutShortcuts[i]);
+        }
+    }
+    
     //-------------------------------------------------------------------------------------------
     if (ImGui::CollapsingHeader("Config"))
     {
@@ -206,4 +293,13 @@ void FCogWindow_Settings::SetDPIScale(float Value) const
 {
     Config->DPIScale = Value;
     GetOwner()->GetContext().SetDPIScale(Config->DPIScale);
+}
+
+//--------------------------------------------------------------------------------------------------------------------------
+void FCogWindow_Settings::RenderShortcut(const char* Label, FCogImGuiKeyInfo& KeyInfo)
+{
+    if (FCogWindowWidgets::InputKey(Label, KeyInfo))
+    {
+        GetOwner()->OnShortcutsDefined();
+    }
 }

@@ -23,8 +23,6 @@ public:
 
     virtual void Shutdown() override;
 
-    bool GetIsSelecting() const { return bSelectionModeActive; }
-
     const TArray<TSubclassOf<AActor>>& GetActorClasses() const { return ActorClasses; }
 
     void SetActorClasses(const TArray<TSubclassOf<AActor>>& Value) { ActorClasses = Value; }
@@ -32,12 +30,6 @@ public:
     ETraceTypeQuery GetTraceType() const { return TraceType; }
 
     void SetTraceType(ETraceTypeQuery Value) { TraceType = Value; }
-
-    virtual void ActivateSelectionMode();
-
-    virtual void DeactivateSelectionMode();
-
-    virtual void ToggleSelectionMode();
 
 protected:
 
@@ -53,9 +45,7 @@ protected:
 
     virtual void RenderContent() override;
 
-    virtual float GetMainMenuWidgetWidth(int32 SubWidgetIndex, float MaxWidth) override;
-
-    virtual void RenderMainMenuWidget(int32 SubWidgetIndex, float Width) override;
+    virtual void RenderMainMenuWidget() override;
 
     virtual bool DrawSelectionCombo();
 
@@ -73,17 +63,13 @@ protected:
 
     FVector LastSelectedActorLocation = FVector::ZeroVector;
 
-    bool bSelectionModeActive = false;
-
-    bool bIsInputEnabledBeforeEnteringSelectionMode;
+    bool bIsInputEnabledBeforeEnteringSelectionMode = false;
 
     int32 WaitInputReleased = 0;
 
     TArray<TSubclassOf<AActor>> ActorClasses;
 
     ETraceTypeQuery TraceType = TraceTypeQuery1;
-
-    TArray<IConsoleObject*> ConsoleCommands;
 
     TObjectPtr<UCogEngineConfig_Selection> Config;
 

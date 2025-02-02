@@ -67,7 +67,7 @@ void FCogAbilityWindow_Tags::RenderMenu()
             ImGui::EndMenu();
         }
 
-        FCogWindowWidgets::SearchBar(Filter);
+        FCogWindowWidgets::SearchBar("##Filter", Filter);
 
         ImGui::EndMenuBar();
     }
@@ -134,11 +134,10 @@ void FCogAbilityWindow_Tags::RenderTagContainer(const UAbilitySystemComponent& A
             //------------------------
             // Tooltip
             //------------------------
-            if (ImGui::IsItemHovered())
+            if (FCogWindowWidgets::BeginItemTableTooltip())
             {
-                FCogWindowWidgets::BeginTableTooltip();
                 RenderTag(AbilitySystemComponent, Tag);
-                FCogWindowWidgets::EndTableTooltip();
+                FCogWindowWidgets::EndItemTableTooltip();
             }
 
             ImGui::PopID();

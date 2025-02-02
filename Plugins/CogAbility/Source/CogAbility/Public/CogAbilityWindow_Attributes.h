@@ -2,13 +2,14 @@
 
 #include "CoreMinimal.h"
 #include "CogCommonConfig.h"
+#include "AttributeSet.h"
 #include "CogWindow.h"
 #include "CogAbilityWindow_Attributes.generated.h"
 
+class UAttributeSet;
 class UAbilitySystemComponent;
 class UCogAbilityConfig_Attributes;
 class UCogAbilityConfig_Alignment;
-struct FGameplayAttribute;
 struct FModifierSpec;
 struct FGameplayModifierInfo;
 
@@ -27,9 +28,21 @@ protected:
 
     virtual void RenderHelp() override;
 
+    virtual void RenderTick(float DeltaTime);
+
     virtual void RenderContent() override;
 
-    virtual void DrawAttributeInfo(const UAbilitySystemComponent& AbilitySystemComponent, const FGameplayAttribute& Attribute);
+    virtual void RenderAttributeDetails(const UAbilitySystemComponent& AbilitySystemComponent, const char* AttributeSetName, const FGameplayAttribute& Attribute, bool IsForTooltip);
+
+    virtual void RenderOpenAttributes();
+
+    virtual void FormatAttributeSetName(FString& AttributeSetName);
+
+    virtual void OpenAttributeDetails(const FGameplayAttribute& InAttribute);
+
+    virtual void CloseAttributeDetails(const FGameplayAttribute& InAttribute);
+
+    virtual void RenderAttributeContextMenu(UAbilitySystemComponent& AbilitySystemComponent, const FGameplayAttribute& InAttribute, int Index);
 
 private:
 
@@ -38,6 +51,8 @@ private:
     TObjectPtr<UCogAbilityConfig_Attributes> Config = nullptr;
 
     TObjectPtr<UCogAbilityConfig_Alignment> AlignmentConfig = nullptr;
+
+    TArray<FGameplayAttribute> OpenedAttributes;
 };
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -60,6 +75,15 @@ public:
     UPROPERTY(Config)
     bool ShowOnlyModified = false;
 
+    UPROPERTY(Config)
+    FString AttributeSetPrefixes;
+
+    UPROPERTY(Config)
+    FVector4f CategoryColor = FVector4f(1.0f, 1.0f, 1.0f, 0.5f);
+
+    UPROPERTY(Config)
+    FVector4f AttributeSetColor = FVector4f(1.0f, 1.0f, 1.0f, 0.5f);
+
     virtual void Reset() override
     {
         Super::Reset();
@@ -68,5 +92,8 @@ public:
         GroupByAttributeSet = false;
         GroupByCategory = false;
         ShowOnlyModified = false;
+        AttributeSetPrefixes = FString();
+        CategoryColor = FVector4f(1.0f, 1.0f, 1.0f, 0.5f);
+        AttributeSetColor = FVector4f(1.0f, 1.0f, 1.0f, 0.5f);
     }
 };

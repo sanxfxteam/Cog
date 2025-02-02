@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "CogImguiContext.h"
+#include "CogWindow_Settings.h"
 #include "imgui.h"
 #include "CogWindowManager.generated.h"
 
@@ -26,8 +27,6 @@ public:
 
     UCogWindowManager();
 
-    virtual void PostInitProperties() override;
-
     virtual void Shutdown();
 
     virtual void SortMainMenu();
@@ -35,6 +34,7 @@ public:
     virtual void Render(float DeltaTime);
 
     virtual void Tick(float DeltaTime);
+
 
     virtual void AddWindow(FCogWindow* Window, const FString& Name, bool AddToMainMenu = true);
 
@@ -51,15 +51,15 @@ public:
 
     virtual void SaveLayout(int32 LayoutIndex);
 
-    virtual bool GetHideAllWindows() const { return bHideAllWindows; }
+    virtual bool GetHideAllWindows() const { return bIsSelectionModeActive; }
 
-    virtual void SetHideAllWindows(bool Value);
+    virtual void SetActivateSelectionMode(bool Value);
+
+    virtual bool GetActivateSelectionMode() const;
 
     virtual void ResetAllWindowsConfig();
 
-    virtual bool RegisterDefaultCommandBindings();
-    
-    const FCogWindow_Settings* GetSettingsWindow() const { return SettingsWindow; }
+    const UCogWindowConfig_Settings* GetSettings() const { return Settings.Get(); }
 
     UCogCommonConfig* GetConfig(const TSubclassOf<UCogCommonConfig> ConfigClass);
 
@@ -75,9 +75,14 @@ public:
 
     FCogImguiContext& GetContext() { return Context; }
 
+
     static void AddCommand(UPlayerInput* PlayerInput, const FString& Command, const FKey& Key);
 
     static void SortCommands(UPlayerInput* PlayerInput);
+
+    void OnShortcutsDefined() const;
+
+    bool IsRenderingMainMenu() const { return IsRenderingInMainMenu; }
 
 protected:
 
@@ -101,9 +106,15 @@ protected:
 
     virtual void RenderMenuItem(FCogWindow& Window, const char* MenuItemName);
 
-    void RenderMenuItemHelp(FCogWindow& Window);
+    virtual void RenderMenuItemHelp(FCogWindow& Window);
 
     virtual void ToggleInputMode();
+
+    virtual void DisableInputMode();
+    
+    virtual void HandleInputs();
+
+    virtual void RenderWidgets();
 
     static void SettingsHandler_ClearAll(ImGuiContext* ctx, ImGuiSettingsHandler*);
 
@@ -115,7 +126,11 @@ protected:
 
     static void SettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf);
 
+    static void DisableConflictingCommand(UPlayerInput* InPlayerInput, const FCogImGuiKeyInfo& InShortcut);
+
     static FString ToggleInputCommand;
+
+    static FString DisableInputCommand;
     
     static FString LoadLayoutCommand;
     
@@ -124,14 +139,14 @@ protected:
     static FString ResetLayoutCommand;
 
     UPROPERTY()
-    mutable TArray<UCogCommonConfig*> Configs;
+    mutable TArray<TObjectPtr<UCogCommonConfig>> Configs;
 
     UPROPERTY()
-    mutable TArray<const UObject*> Assets;
+    mutable TArray<TObjectPtr<const UObject>> Assets;
 
     UPROPERTY(Config)
-    bool bRegisterDefaultCommands = true;
-
+    bool bShowMainMenu = false;
+    
     FCogImguiContext Context;
 
     TArray<FCogWindow*> Windows;
@@ -143,6 +158,8 @@ protected:
     TArray<FCogWindow*> SpaceWindows;
 
     FCogWindow_Settings* SettingsWindow = nullptr;
+    
+    TWeakObjectPtr<UCogWindowConfig_Settings> Settings;
 
     FCogWindow_Layouts* LayoutsWindow = nullptr;
 
@@ -150,13 +167,15 @@ protected:
 
     int32 LayoutToLoad = -1;
 
-    int32 HideAllWindowsCounter = 0;
+    int32 SelectionModeActiveCounter = 0;
+    
+    bool bIsInputEnabledBeforeEnteringSelectionMode = false;
 
-    bool bHideAllWindows = false;
+    bool bIsSelectionModeActive = false;
 
     bool IsInitialized = false;
-
-    TArray<IConsoleObject*> ConsoleCommands;
+    
+    bool IsRenderingInMainMenu = false;
 };
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -173,7 +192,7 @@ template<class T>
 T* UCogWindowManager::GetConfig()
 {
     static_assert(TPointerIsConvertibleFromTo<T, const UCogCommonConfig>::Value);
-    return Cast<T>(&GetConfig(T::StaticClass()));
+    return Cast<T>(GetConfig(T::StaticClass()));
 }
 
 //--------------------------------------------------------------------------------------------------------------------------

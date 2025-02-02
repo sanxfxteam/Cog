@@ -42,9 +42,9 @@ void FCogAbilityWindow_Effects::ResetConfig()
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void FCogAbilityWindow_Effects::RenderTick(float DetlaTime)
+void FCogAbilityWindow_Effects::RenderTick(float DeltaTime)
 {
-    Super::RenderTick(DetlaTime);
+    Super::RenderTick(DeltaTime);
 
     RenderOpenEffects();
 }
@@ -74,7 +74,7 @@ void FCogAbilityWindow_Effects::RenderContent()
             ImGui::EndMenu();
         }
 
-        FCogWindowWidgets::SearchBar(Filter);
+        FCogWindowWidgets::SearchBar("##Filter", Filter);
 
         ImGui::EndMenuBar();
     }
@@ -85,7 +85,7 @@ void FCogAbilityWindow_Effects::RenderContent()
 //--------------------------------------------------------------------------------------------------------------------------
 void FCogAbilityWindow_Effects::RenderEffectsTable()
 {
-    const UAbilitySystemComponent* AbilitySystemComponent = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(GetSelection(), true);
+    UAbilitySystemComponent* AbilitySystemComponent = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(GetSelection(), true);
     if (AbilitySystemComponent == nullptr)
     {
         ImGui::TextDisabled("Selection has no ability system component");
@@ -170,7 +170,7 @@ void FCogAbilityWindow_Effects::RenderEffectsTable()
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void FCogAbilityWindow_Effects::RenderEffectRow(const UAbilitySystemComponent& AbilitySystemComponent, const FActiveGameplayEffectHandle& ActiveHandle, int32 Index, int32& Selected)
+void FCogAbilityWindow_Effects::RenderEffectRow(UAbilitySystemComponent& AbilitySystemComponent, const FActiveGameplayEffectHandle& ActiveHandle, int32 Index, int32& Selected)
 {
     const FActiveGameplayEffect* ActiveEffectPtr = AbilitySystemComponent.GetActiveGameplayEffect(ActiveHandle);
     if (ActiveEffectPtr == nullptr)
@@ -213,11 +213,10 @@ void FCogAbilityWindow_Effects::RenderEffectRow(const UAbilitySystemComponent& A
     //------------------------
     // Popup
     //------------------------
-    if (ImGui::IsItemHovered())
+    if (FCogWindowWidgets::BeginItemTableTooltip())
     {
-        FCogWindowWidgets::BeginTableTooltip();
         RenderEffectInfo(AbilitySystemComponent, ActiveEffect, Effect);
-        FCogWindowWidgets::EndTableTooltip();
+        FCogWindowWidgets::EndItemTableTooltip();
     }
 
     //------------------------
@@ -225,8 +224,10 @@ void FCogAbilityWindow_Effects::RenderEffectRow(const UAbilitySystemComponent& A
     //------------------------
     if (ImGui::BeginPopupContextItem())
     {
+        const ImVec2 ButtonsSize = ImVec2(ImGui::GetFontSize() * 10, 0);
+
         bool bOpen = OpenedEffects.Contains(ActiveHandle);
-        if (ImGui::Checkbox("Open", &bOpen))
+        if (ImGui::Checkbox("Open Details", &bOpen))
         {
             if (bOpen)
             {
@@ -238,6 +239,15 @@ void FCogAbilityWindow_Effects::RenderEffectRow(const UAbilitySystemComponent& A
             }
             ImGui::CloseCurrentPopup();
         }
+
+        if (ImGui::Button("Remove", ButtonsSize))
+        {
+            AbilitySystemComponent.RemoveActiveGameplayEffect(ActiveHandle);
+            ImGui::CloseCurrentPopup();
+        }
+
+        FCogWindowWidgets::OpenObjectAssetButton(EffectPtr, ButtonsSize);
+
         ImGui::EndPopup();
     }
 
@@ -270,7 +280,7 @@ void FCogAbilityWindow_Effects::RenderEffectRow(const UAbilitySystemComponent& A
 //--------------------------------------------------------------------------------------------------------------------------
 void FCogAbilityWindow_Effects::RenderEffectInfo(const UAbilitySystemComponent& AbilitySystemComponent, const FActiveGameplayEffect& ActiveEffect, const UGameplayEffect& Effect)
 {
-    if (ImGui::BeginTable("Effect", 2, ImGuiTableFlags_Borders))
+    if (ImGui::BeginTable("Effect", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable))
     {
         constexpr ImVec4 TextColor(1.0f, 1.0f, 1.0f, 0.5f);
 

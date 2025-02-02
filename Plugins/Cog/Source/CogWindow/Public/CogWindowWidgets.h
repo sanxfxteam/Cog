@@ -4,6 +4,10 @@
 #include "imgui.h"
 #include "UObject/ReflectedTypeAccessors.h"
 
+#include <Templates/SubclassOf.h>
+
+class AActor;
+class APawn;
 class FEnumProperty;
 class UCollisionProfile;
 class UEnum;
@@ -19,11 +23,19 @@ class COGWINDOW_API FCogWindowWidgets
 {
 public:
 
-    static void BeginTableTooltip();
+    static bool BeginTableTooltip();
 
     static void EndTableTooltip();
 
+    static bool ItemTooltipWrappedText(const char* InText);
+    
+    static bool BeginItemTableTooltip();
+
+    static void EndItemTableTooltip();
+
     static void ThinSeparatorText(const char* Label);
+
+    static bool DarkCollapsingHeader(const char* InLabel, ImGuiTreeNodeFlags InFlags);
 
     static void ProgressBarCentered(float Fraction, const ImVec2& Size, const char* Overlay);
 
@@ -49,7 +61,7 @@ public:
 
     static void AddTextWithShadow(ImDrawList* DrawList, const ImVec2& Position, ImU32 Color, const char* TextBegin, const char* TextEnd = NULL);
 
-    static void SearchBar(ImGuiTextFilter& Filter, float Width = -1.0f);
+    static bool SearchBar(const char* InLabel, ImGuiTextFilter& InFilter, float InWidth = -1.0f);
 
     static void PushBackColor(const ImVec4& Color);
 
@@ -73,12 +85,12 @@ public:
     
     static bool ComboboxEnum(const char* Label, const FEnumProperty* EnumProperty, uint8* PointerToEnumValue);
 
-    static bool CheckBoxState(const char* Label, ECheckBoxState& State);
+    static bool CheckBoxState(const char* Label, ECheckBoxState& State, bool ShowTooltip = true);
 
     static bool InputKey(const char* Label, FCogImGuiKeyInfo& KeyInfo);
 
     static bool InputKey(FCogImGuiKeyInfo& KeyInfo);
-
+    
     static bool KeyBind(FKeyBind& KeyBind);
 
     static bool ButtonWithTooltip(const char* Text, const char* Tooltip);
@@ -91,19 +103,40 @@ public:
 
     static bool CollisionProfileChannels(int32& Channels);
 
-    static bool MenuActorsCombo(const char* StrID, const UWorld& World, TSubclassOf<AActor> ActorClass, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
+    static bool MenuActorsCombo(const char* StrID, AActor*& NewSelection, const UWorld& World, TSubclassOf<AActor> ActorClass, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
 
-	static bool MenuActorsCombo(const char* StrID, const UWorld& World, const TArray<TSubclassOf<AActor>>& ActorClasses, int32& SelectedActorClassIndex, ImGuiTextFilter* Filter, const APawn* LocalPlayerPawn, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
+    static bool MenuActorsCombo(const char* StrID, AActor*& NewSelection, const UWorld& World, const TArray<TSubclassOf<AActor>>& ActorClasses, int32& SelectedActorClassIndex, ImGuiTextFilter* Filter, const APawn* LocalPlayerPawn, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
 
-    static bool ActorsListWithFilters(const UWorld& World, const TArray<TSubclassOf<AActor>>& ActorClasses, int32& SelectedActorClassIndex, ImGuiTextFilter* Filter, const APawn* LocalPlayerPawn, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
+    static bool ActorsListWithFilters(AActor*& NewSelection, const UWorld& World, const TArray<TSubclassOf<AActor>>& ActorClasses, int32& SelectedActorClassIndex, ImGuiTextFilter* Filter, const APawn* LocalPlayerPawn, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
 
-    static bool ActorsList(const UWorld& World, const TSubclassOf<AActor> ActorClass, const ImGuiTextFilter* Filter = nullptr, const APawn* LocalPlayerPawn = nullptr, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
+    static bool ActorsList(AActor*& NewSelection, const UWorld& World, const TSubclassOf<AActor> ActorClass, const ImGuiTextFilter* Filter = nullptr, const APawn* LocalPlayerPawn = nullptr, const FCogWindowActorContextMenuFunction& ContextMenuFunction = nullptr);
 
     static void ActorContextMenu(AActor& Selection, const FCogWindowActorContextMenuFunction& ContextMenuFunction);
 
     static void ActorFrame(const AActor& Actor);
 
     static void SmallButton(const char* Text, const ImVec4& Color);
+
+    static bool InputText(const char* Text, FString& Value,  ImGuiInputTextFlags InFlags = 0, ImGuiInputTextCallback InCallback = nullptr, void* InUserData = nullptr);
+
+    static bool InputTextWithHint(const char* InText, const char* InHint, FString& InValue, ImGuiInputTextFlags InFlags = 0, ImGuiInputTextCallback InCallback = nullptr, void* InUserData = nullptr);
+
+    static bool BeginRightAlign(const char* Id);
+
+    static void EndRightAlign();
+
+    static void MenuItemShortcut(const char* Id, const FString& Text);
+
+    static bool BrowseToAssetButton(const UObject* InAsset, const ImVec2& InSize = ImVec2(0, 0));
+
+    static bool BrowseToObjectAssetButton(const UObject* InObject, const ImVec2& InSize = ImVec2(0, 0));
+
+    static bool OpenAssetButton(const UObject* InAsset, const ImVec2& InSize = ImVec2(0, 0));
+
+    static bool OpenObjectAssetButton(const UObject* InObject, const ImVec2& InSize = ImVec2(0, 0));
+
+    static void RenderClosebutton(const ImVec2& InPos);
+
 };
 
 template<typename EnumType>

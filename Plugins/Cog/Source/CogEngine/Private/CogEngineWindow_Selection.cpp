@@ -2,16 +2,20 @@
 
 #include "CogDebug.h"
 #include "CogEngineHelper.h"
+#include "CogEngineReplicator.h"
 #include "CogEngineWindow_ImGui.h"
 #include "CogImguiHelper.h"
 #include "CogImguiInputHelper.h"
+#include "CogWindowConsoleCommandManager.h"
 #include "CogWindowManager.h"
 #include "CogWindowWidgets.h"
+#include "CogWindow_Settings.h"
 #include "Components/PrimitiveComponent.h"
 #include "EngineUtils.h"
 #include "GameFramework/Character.h"
 #include "HAL/IConsoleManager.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "Kismet/GameplayStatics.h"
 
 FString FCogEngineWindow_Selection::ToggleSelectionModeCommand = TEXT("Cog.ToggleSelectionMode");
@@ -23,15 +27,19 @@ void FCogEngineWindow_Selection::Initialize()
 
     bHasMenu = true;
     bHasWidget = true;
+    bIsWidgetVisible = true;
     ActorClasses = { AActor::StaticClass(), ACharacter::StaticClass() };
 
     Config = GetConfig<UCogEngineConfig_Selection>();
 
-    ConsoleCommands.Add(IConsoleManager::Get().RegisterConsoleCommand(
+    FCogWindowConsoleCommandManager::RegisterWorldConsoleCommand(
         *ToggleSelectionModeCommand,
         TEXT("Toggle the actor selection mode"),
-        FConsoleCommandWithArgsDelegate::CreateLambda([this](const TArray<FString>& Args) { ToggleSelectionMode(); }),
-        ECVF_Cheat));
+        GetWorld(),
+        FCogWindowConsoleCommandDelegate::CreateLambda([this](const TArray<FString>& InArgs, UWorld* InWorld)
+        {
+            GetOwner()->SetActivateSelectionMode(!GetOwner()->GetActivateSelectionMode());
+        }));
 
     TryReapplySelection();
 }
@@ -50,10 +58,6 @@ void FCogEngineWindow_Selection::RenderHelp()
 //--------------------------------------------------------------------------------------------------------------------------
 void FCogEngineWindow_Selection::Shutdown()
 {
-    for (IConsoleObject* ConsoleCommand : ConsoleCommands)
-    {
-        IConsoleManager::Get().UnregisterConsoleObject(ConsoleCommand);
-    }
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -75,7 +79,7 @@ void FCogEngineWindow_Selection::PreSaveConfig()
 //--------------------------------------------------------------------------------------------------------------------------
 void FCogEngineWindow_Selection::TryReapplySelection() const
 {
-	const UWorld* World = GetWorld();
+    const UWorld* World = GetWorld();
     if (World == nullptr)
     {
         return;
@@ -121,47 +125,9 @@ TSubclassOf<AActor> FCogEngineWindow_Selection::GetSelectedActorClass() const
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-void FCogEngineWindow_Selection::ToggleSelectionMode()
-{
-    if (bSelectionModeActive)
-    {
-        DeactivateSelectionMode();
-    }
-    else
-    {
-        ActivateSelectionMode();
-    }
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-void FCogEngineWindow_Selection::ActivateSelectionMode()
-{
-    bSelectionModeActive = true;
-    bIsInputEnabledBeforeEnteringSelectionMode = GetOwner()->GetContext().GetEnableInput();
-    GetOwner()->GetContext().SetEnableInput(true);
-    GetOwner()->SetHideAllWindows(true);
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-
 void FCogEngineWindow_Selection::HackWaitInputRelease()
 {
     WaitInputReleased = 1;
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-void FCogEngineWindow_Selection::DeactivateSelectionMode()
-{
-    bSelectionModeActive = false;
-
-    //--------------------------------------------------------------------------------------------
-    // We can enter selection mode by a command, and ImGui might not have the input focus
-    // When in selection mode we need ImGui to have the input focus
-    // When leaving selection mode we want to leave it as it was before
-    //--------------------------------------------------------------------------------------------
-    GetOwner()->GetContext().SetEnableInput(bIsInputEnabledBeforeEnteringSelectionMode);
-
-    GetOwner()->SetHideAllWindows(false);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -174,7 +140,7 @@ void FCogEngineWindow_Selection::RenderTick(float DeltaTime)
         SetGlobalSelection(GetLocalPlayerPawn());
     }
 
-    if (bSelectionModeActive)
+    if (GetOwner()->GetActivateSelectionMode())
     {
         TickSelectionMode();
     }
@@ -197,14 +163,21 @@ void FCogEngineWindow_Selection::RenderContent()
     {
         if (ImGui::MenuItem("Pick"))
         {
-            ActivateSelectionMode();
+            GetOwner()->SetActivateSelectionMode(true);
             //HackWaitInputRelease();
         }
 
         if (ImGui::BeginMenu("Options"))
         {
             ImGui::Checkbox("Save selection", &Config->bReapplySelection);
+            ImGui::SetItemTooltip("Should the last selection be saved and reapplied on startup.");
+
             ImGui::Checkbox("Actor Name Use Label", &FCogDebug::Settings.ActorNameUseLabel);
+            ImGui::SetItemTooltip("Should actor names be displayed using their label. Labels are more readable.");
+
+            ImGui::Checkbox("Replicate Selection", &FCogDebug::Settings.ReplicateSelection);
+            ImGui::SetItemTooltip("Should the client replicate its actor selection to the server.");
+
             ImGui::EndMenu();
         }
 
@@ -219,7 +192,14 @@ void FCogEngineWindow_Selection::RenderContent()
 //--------------------------------------------------------------------------------------------------------------------------
 bool FCogEngineWindow_Selection::DrawSelectionCombo()
 {
-    return FCogWindowWidgets::ActorsListWithFilters(*GetWorld(), ActorClasses, Config->SelectedClassIndex, &Filter, GetLocalPlayerPawn());
+    AActor* NewSelection = nullptr;
+    const bool result = FCogWindowWidgets::ActorsListWithFilters(NewSelection, *GetWorld(), ActorClasses, Config->SelectedClassIndex, &Filter, GetLocalPlayerPawn());
+    if (result)
+    {
+        SetGlobalSelection(NewSelection);
+    }
+
+    return result;
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
@@ -227,14 +207,14 @@ void FCogEngineWindow_Selection::TickSelectionMode()
 {
     if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
     {
-        DeactivateSelectionMode();
+        GetOwner()->SetActivateSelectionMode(false);
         return;
     }
 
     APlayerController* PlayerController = GetLocalPlayerController();
     if (PlayerController == nullptr)
     {
-        DeactivateSelectionMode();
+        GetOwner()->SetActivateSelectionMode(false);
         return;
     }
 
@@ -254,7 +234,15 @@ void FCogEngineWindow_Selection::TickSelectionMode()
 
     AActor* HoveredActor = nullptr;
     FVector WorldOrigin, WorldDirection;
-    if (UGameplayStatics::DeprojectScreenToWorld(PlayerController, FCogImguiHelper::ToFVector2D(ImGui::GetMousePos() - ViewportPos), WorldOrigin, WorldDirection))
+    
+    //-----------------------------------------------------------------------------------------------
+    // Do not use imgui mouse pos because when connected to NetImgui, the mouse position is invalid.
+    // See https://github.com/sammyfreg/netImgui/issues/61
+    //-----------------------------------------------------------------------------------------------
+    //ImVec2 mousePos = ImGui::GetMousePos();
+    ImVec2 mousePos = GetOwner()->GetContext().GetImguiMousePos();
+
+    if (UGameplayStatics::DeprojectScreenToWorld(PlayerController, FCogImguiHelper::ToFVector2D(mousePos - ViewportPos), WorldOrigin, WorldDirection))
     {
         //--------------------------------------------------------------------------------------------------------
         // Prioritize another actor than the selected actor unless we only touch the selected actor.
@@ -286,7 +274,7 @@ void FCogEngineWindow_Selection::TickSelectionMode()
         FCogWindowWidgets::ActorFrame(*HoveredActor);
     }
 
-    if (bSelectionModeActive)
+    if (GetOwner()->GetActivateSelectionMode())
     {
         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
         {
@@ -297,7 +285,7 @@ void FCogEngineWindow_Selection::TickSelectionMode()
                     SetGlobalSelection(HoveredActor);
                 }
 
-                DeactivateSelectionMode();
+                GetOwner()->SetActivateSelectionMode(false);
             }
             else
             {
@@ -308,65 +296,30 @@ void FCogEngineWindow_Selection::TickSelectionMode()
 }
 
 //--------------------------------------------------------------------------------------------------------------------------
-float FCogEngineWindow_Selection::GetMainMenuWidgetWidth(int32 SubWidgetIndex, float MaxWidth)
+void FCogEngineWindow_Selection::RenderMainMenuWidget()
 {
-    switch (SubWidgetIndex)
+    if (ImGui::MenuItem("Pick"))
     {
-        case 0: return FCogWindowWidgets::GetFontWidth() * 6;
-        case 1: return FMath::Min(FMath::Max(MaxWidth, FCogWindowWidgets::GetFontWidth() * 10), FCogWindowWidgets::GetFontWidth() * 30);
-        case 2: return FCogWindowWidgets::GetFontWidth() * 3;
+        GetOwner()->SetActivateSelectionMode(true);
+        HackWaitInputRelease();
     }
+    RenderPickButtonTooltip();
 
-    return -1.0f;
-}
-
-//--------------------------------------------------------------------------------------------------------------------------
-void FCogEngineWindow_Selection::RenderMainMenuWidget(int32 SubWidgetIndex, float Width)
-{
-    //-----------------------------------
-    // Pick Button
-    //-----------------------------------
-    if (SubWidgetIndex == 0)
+    //TODO: Could be replaced by a BeginMenu
+    
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 15);
+    AActor* NewSelection = nullptr;
+    if (FCogWindowWidgets::MenuActorsCombo(
+        "MenuActorSelection", 
+        NewSelection, 
+        *GetWorld(), 
+        ActorClasses, 
+        Config->SelectedClassIndex, 
+        &Filter, 
+        GetLocalPlayerPawn(), 
+        [this](AActor& Actor) { RenderActorContextMenu(Actor);  }))
     {
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
-
-        if (ImGui::Button("Pick", ImVec2(Width, 0)))
-        {
-            ActivateSelectionMode();
-            HackWaitInputRelease();
-        }
-        RenderPickButtonTooltip();
-
-        ImGui::PopStyleColor(1);
-        ImGui::PopStyleVar(2);
-    }
-    else if (SubWidgetIndex == 1)
-    {
-        ImGui::SetNextItemWidth(Width);
-        FCogWindowWidgets::MenuActorsCombo("MenuActorSelection", *GetWorld(), ActorClasses, Config->SelectedClassIndex, &Filter, GetLocalPlayerPawn(), [this](AActor& Actor) { RenderActorContextMenu(Actor);  });
-    }
-    else if (SubWidgetIndex == 2)
-    {
-        //-----------------------------------
-        // Reset Button
-        //-----------------------------------
-        {
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-            ImGui::PushStyleColor(ImGuiCol_Button, IM_COL32(0, 0, 0, 0));
-            if (ImGui::Button("X", ImVec2(Width, 0)))
-            {
-                SetGlobalSelection(nullptr);
-                ImGui::CloseCurrentPopup();
-            }
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::SetTooltip("Reset the selection to the controlled actor.");
-            }
-            ImGui::PopStyleColor(1);
-            ImGui::PopStyleVar(1);
-        }
+        SetGlobalSelection(NewSelection);
     }
 }
 
@@ -387,7 +340,7 @@ void FCogEngineWindow_Selection::RenderPickButtonTooltip()
 {
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_Stationary))
     {
-        const FString Shortcut = FCogImguiInputHelper::CommandToString(*GetWorld(), ToggleSelectionModeCommand);
+        const FString Shortcut = FCogImguiInputHelper::KeyInfoToString(GetOwner()->GetSettings()->ToggleSelectionShortcut);
         ImGui::SetTooltip("Enter picking mode to pick an actor on screen. %s", TCHAR_TO_ANSI(*Shortcut));
     }
 }

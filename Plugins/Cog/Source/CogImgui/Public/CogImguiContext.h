@@ -25,6 +25,18 @@ struct COGIMGUI_API FCogImGuiViewportData
 	TWeakPtr<SCogImguiWidget> Widget = nullptr;
 };
 
+
+struct COGIMGUI_API FCogImGuiContextScope
+{
+	UE_NODISCARD_CTOR explicit FCogImGuiContextScope(FCogImguiContext& CogImguiContext);
+	UE_NODISCARD_CTOR explicit FCogImGuiContextScope(ImGuiContext* GuiCtx, ImPlotContext* PlotCtx);
+	~FCogImGuiContextScope();
+
+private:
+	ImGuiContext* PrevContext = nullptr;
+	ImPlotContext* PrevPlotContext = nullptr;
+};
+
 class COGIMGUI_API FCogImguiContext : public TSharedFromThis<FCogImguiContext>
 {
 public:
@@ -53,17 +65,29 @@ public:
 
 	bool BeginFrame(float InDeltaTime);
 
+	void GetCursorPos(ImGuiIO& IO);
+
 	void EndFrame();
 
 	float GetDpiScale() const { return DpiScale; }
 
 	void SetDPIScale(float Value);
 
+	bool GetSkipRendering() const;
+
+	void SetSkipRendering(bool Value);
+
+	ImVec2 GetImguiMousePos();
+
 	TObjectPtr<const UGameViewportClient> GetGameViewport() const { return GameViewport; }
 
 	TSharedPtr<const SCogImguiWidget> GetMainWidget() const { return MainWidget; }
 
+	static bool GetIsNetImguiInitialized() { return bIsNetImguiInitialized; }
+
 private:
+
+	friend struct FCogImGuiContextScope;
 
 	void OnDisplayMetricsChanged(const FDisplayMetrics& DisplayMetrics) const;
 
@@ -147,4 +171,9 @@ private:
 	bool bWantCaptureMouse = false;
 
 	float DpiScale = 1.f;
+
+	bool bSkipRendering = false;
+
+	static bool bIsNetImguiInitialized;
+
 };

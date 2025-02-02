@@ -11,6 +11,7 @@ Cog provides:
 - Window mangement with persistent configuration and layouts.
 - C++ and Blueprint functions to log and debug draw within Log Categories.
 - Control over the server regarding debug draw, logging, spawning, cheats.
+- NetImgui support to ease the debugging of game server.
 
 General Info:
 - Cog can be used both in editor and package builds. It is disabled by default on shipping builds.
@@ -139,6 +140,15 @@ Used to configure the network emulation
 
 ![Net Emulation](https://github.com/arnaud-jamin/Cog/assets/13844285/97103f15-fae8-4fe9-8189-8fdbcab5cb20)
 
+### NetImgui
+Handle connections to a [NetImgui](https://github.com/sammyfreg/netImgui) server.
+
+![NetImgui](https://github.com/user-attachments/assets/ea1d4a28-4c2f-460c-ac7d-5f6ef8e6e6dd)
+
+The following image shows the editor running along a dedicated server. The NetImgui server displays the dedicated server imgui windows. 
+This can be used to debug the state of the game server. For example the behavior trees are only available on the game server.
+![image](https://github.com/user-attachments/assets/3cd788c9-9884-4c1c-8333-7a311bdcd20a)
+
 ### Output Log
 Display the output log based on each log categories verbosity.
     
@@ -248,7 +258,7 @@ Log and debug draw functions can be filtered by the selected actor.
 
 ### Testing the sample
 
-You must have Unreal 5.1 or greater and Visual Studio to launch the sample
+You must have Unreal 5.5 or greater and Visual Studio to launch the sample
 
 1. Download the code
 2. Right Click `Cog.uproject` and click `Generate Visual Studio project files`
@@ -262,7 +272,7 @@ You must have Unreal 5.1 or greater and Visual Studio to launch the sample
 ### Integrating Cog in your project
 
 The Cog repository has the following structure:
-- `CogSample` - A Sample that demonstrate various Cog functionalities. The project was saved in Unreal 5.1
+- `CogSample` - A Sample that demonstrate various Cog functionalities. The project was saved in Unreal 5.5
 - `Plugins/CogAbility` - ImGui windows for the Gameplay Ability System (Abilities, Effects, Tags, ...)
 - `Plugins/CogAI` - ImGui windows for AI (Behavior Tree, Blackboard)
 - `Plugins/CogInput` - ImGui windows for the Enhanced Input library (Input action, Gamepad)
@@ -321,13 +331,13 @@ public class CogSample : ModuleRules
 ```
 
 
-- In the class of your choice (in the sample we use the GameState class) add a reference to the CogWindowManager:
+- In the class of your choice add a reference to the CogWindowManager (in the sample we use the GameState class):
 ```cpp
 // ACogSampleGameState.h
 #pragma once
 
 #include "CoreMinimal.h"
-#include "CogCommon.h"
+#include "CogCommon.h" 
 #include "GameFramework/GameStateBase.h"
 #include "CogSampleGameState.generated.h"
 
@@ -337,8 +347,6 @@ UCLASS()
 class ACogSampleGameState : public AGameStateBase
 {
     GENERATED_BODY()
-
-    [...]
 
     // To make sure it doesn't get garbage collected.
     UPROPERTY()
@@ -350,8 +358,16 @@ class ACogSampleGameState : public AGameStateBase
 };
 ```
 
+- In the cpp file, add the following includes:
+```cpp
+// ACogSampleGameState.cpp
+#if ENABLE_COG
+#include "CogAll.h"
+#include "CogWindowManager.h"
+#endif //ENABLE_COG
+```
 
-- Instantiate the CogWindowManager and add some windows:
+- Instantiate CogWindowManager and add some windows:
 ```cpp
 // ACogSampleGameState.cpp
 void ACogSampleGameState::BeginPlay()
@@ -362,20 +378,34 @@ void ACogSampleGameState::BeginPlay()
     CogWindowManager = NewObject<UCogWindowManager>(this);
     CogWindowManagerRef = CogWindowManager;
 
-    // Add all the built-in windows
+    // Add all the built-in windows. 
     Cog::AddAllWindows(*CogWindowManager);
 
-    // Add a custom window
-    CogWindowManager->AddWindow<FCogSampleWindow_Team>("Gameplay.Team");
+    // Optionally, add more custom windows from your own project
+    // CogWindowManager->AddWindow<FCogSampleWindow_Team>("Gameplay.Team");
 
-    [...]
 #endif //ENABLE_COG
 }
 ```
 
-- Tick the CogWindowManager:
+- Shutdown CogWindowManager:
 ```cpp
+// ACogSampleGameState.cpp
+void ACogSampleGameState::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    Super::EndPlay(EndPlayReason);
 
+#if ENABLE_COG
+    if (CogWindowManager != nullptr)
+    {
+        CogWindowManager->Shutdown();
+    }
+#endif //ENABLE_COG
+}
+```
+
+- Tick CogWindowManager:
+```cpp
 // ACogSampleGameState.cpp
 ACogSampleGameState::ACogSampleGameState(const FObjectInitializer & ObjectInitializer)
     : Super(ObjectInitializer)
@@ -384,8 +414,6 @@ ACogSampleGameState::ACogSampleGameState(const FObjectInitializer & ObjectInitia
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.SetTickFunctionEnable(true);
     PrimaryActorTick.bStartWithTickEnabled = true;
-    
-    [...]
 }
 
 void ACogSampleGameState::Tick(float DeltaSeconds)
@@ -398,10 +426,16 @@ void ACogSampleGameState::Tick(float DeltaSeconds)
 }
 ```
 
-
-
 - In your PlayerController class, spawn the Cog Replicators. The Replicator are used to communicate between the client and the server, for example to apply cheats, spawn actors, etc.
 ```cpp
+
+#if ENABLE_COG
+#include "CogAbilityReplicator.h"
+#include "CogDebugDraw.h"
+#include "CogDebugReplicator.h"
+#include "CogEngineReplicator.h"
+#endif //ENABLE_COG
+
 void ACogSamplePlayerController::BeginPlay()
 {
     Super::BeginPlay();
@@ -420,10 +454,8 @@ void ACogSamplePlayerController::BeginPlay()
 // CogSampleCharacter.h
 UCLASS(config=Game)
 class ACogSampleCharacter : public ACharacter
-    [...]
     , public ICogCommonDebugFilteredActorInterface
     , public ICogCommonAllegianceActorInterface
-    [...]
 ```
 
 ```cpp
@@ -436,18 +468,15 @@ class ACogSamplePlayerController
 
 - In Unreal Editor create and configure the following Data Assets:
   - CogAbilityDataAsset
-  - CogAIDataAsset
   - CogEngineDataAsset
-  - CogInputDataAsset
   
-![Data Assets](https://github.com/arnaud-jamin/Cog/assets/13844285/88384138-2ba7-43cf-a275-82f40503338e)
+![Data Assets](https://github.com/user-attachments/assets/4dcbd8c6-e0de-44a0-bcb2-29c76f165029)
 
-![Data Assets](https://github.com/arnaud-jamin/Cog/assets/13844285/cbda8065-c921-41a6-b06e-4302d8c72989)
+![Data Assets](https://github.com/user-attachments/assets/aea5a38e-fca4-44b7-b8e6-bee397ef5242)
 
-![Data Assets](https://github.com/arnaud-jamin/Cog/assets/13844285/1f4f3255-4104-4dfc-ab9e-fd34335c0289)
+![Data Assets](https://github.com/user-attachments/assets/7382b272-7561-45ca-9401-05107198657a)
 
-Currently, Cog does not properly work when running under a single process in multiplayer mode. You might want to disable the setting `Editor Preferences - Run Under One Process`:
+- Reference the added Data Assets in the projet Asset Manager for them to be found in package mode:
 
-![image](https://github.com/arnaud-jamin/Cog/assets/13844285/6079b71c-bd41-4193-b3c6-aa76a70984e5)
-
+![Data Assets](https://github.com/user-attachments/assets/39d0fcc2-1e82-4bb7-aa5e-0661ed9ab58b)
 

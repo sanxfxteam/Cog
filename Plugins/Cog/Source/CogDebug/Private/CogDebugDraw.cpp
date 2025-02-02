@@ -1,19 +1,20 @@
 #include "CogDebugDraw.h"
 
+#include "CogDebug.h"
 #include "CogDebugDrawHelper.h"
 #include "CogDebugDrawImGui.h"
 #include "CogDebugLog.h"
 #include "CogDebugReplicator.h"
-#include "CogDebug.h"
 #include "CogDebugShape.h"
 #include "CogImguiHelper.h"
+#include "Components/BoxComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "DrawDebugHelpers.h"
 #include "Engine/Engine.h"
 #include "Engine/SkeletalMesh.h"
-#include "VisualLogger/VisualLogger.h"
 #include "Engine/World.h"
-#include "DrawDebugHelpers.h"
 #include "ReferenceSkeleton.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "VisualLogger/VisualLogger.h"
 
 #if ENABLE_COG
 
@@ -638,6 +639,96 @@ void FCogDebugDraw::Skeleton(const FLogCategoryBase& LogCategory, const USkeleta
     }
 }
 
+//--------------------------------------------------------------------------------------------------------------------------
+void FCogDebugDraw::LineTrace(const FLogCategoryBase& LogCategory, const UObject* WorldContextObject, const FVector& Start, const FVector& End, const bool HasHits, TArray<FHitResult>& HitResults, const FCogDebugDrawLineTraceParams& Settings)
+{
+    if (FCogDebugLog::IsLogCategoryActive(LogCategory) == false)
+    { return; }
+
+    const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+    if (World == nullptr)
+    { return; }
+
+    Settings.Persistent = FCogDebug::GetDebugPersistent(Settings.Persistent);
+    FCogDebugDrawHelper::DrawLineTrace(World, Start, End, HasHits, HitResults, Settings);
+
+    ReplicateShape(WorldContextObject,
+                   FCogDebugShape::MakeArrow(Start,
+                                             End,
+                                             FCogDebug::Settings.ArrowSize,
+                                             HasHits
+                                                 ? Settings.HitColor
+                                                 : Settings.NoHitColor,
+                                             FCogDebug::Settings.Thickness,
+                                             Settings.Persistent,
+                                             Settings.DepthPriority));
+
+    ReplicateHitResults(WorldContextObject, HitResults, Settings);
+}
+
+//--------------------------------------------------------------------------------------------------------------------------
+void FCogDebugDraw::Sweep(const FLogCategoryBase& LogCategory, const UObject* WorldContextObject, const FCollisionShape& Shape, const FVector& Start, const FVector& End, const FQuat& Rotation, const bool HasHits, TArray<FHitResult>& HitResults, const FCogDebugDrawSweepParams& Settings)
+{
+    if (FCogDebugLog::IsLogCategoryActive(LogCategory) == false)
+    { return; }
+
+    const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+    if (World == nullptr)
+    { return; }
+
+    FCogDebugDrawHelper::DrawSweep(World, Shape, Start, End, Rotation, HasHits, HitResults, Settings);
+
+    const FColor Color = HasHits
+                       ? Settings.HitColor
+                       : Settings.NoHitColor;
+    ReplicateShape(WorldContextObject,
+                   FCogDebugShape::MakeCollisionShape(Shape,
+                                                      Start,
+                                                      Rotation,
+                                                      Shape.GetExtent(),
+                                                      Color,
+                                                      FCogDebug::Settings.Thickness,
+                                                      Settings.Persistent,
+                                                      Settings.DepthPriority));
+    ReplicateShape(WorldContextObject,
+                   FCogDebugShape::MakeArrow(Start,
+                                             End,
+                                             FCogDebug::Settings.ArrowSize,
+                                             Color,
+                                             FCogDebug::Settings.Thickness,
+                                             Settings.Persistent,
+                                             Settings.DepthPriority));
+
+    ReplicateHitResults(WorldContextObject, HitResults, Settings);
+}
+
+//--------------------------------------------------------------------------------------------------------------------------
+void FCogDebugDraw::Overlap(const FLogCategoryBase& LogCategory, const UObject* WorldContextObject, const FCollisionShape& Shape, const FVector& Location, const FQuat& Rotation, TArray<FOverlapResult>& OverlapResults, const FCogDebugDrawOverlapParams& Settings)
+{
+    if (FCogDebugLog::IsLogCategoryActive(LogCategory) == false)
+    { return; }
+
+    const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+    if (World == nullptr)
+    { return; }
+
+    FCogDebugDrawHelper::DrawOverlap(World, Shape, Location, Rotation, OverlapResults, Settings);
+
+    const FColor Color = OverlapResults.Num() > 0
+                       ? Settings.HitColor
+                       : Settings.NoHitColor;
+    ReplicateShape(WorldContextObject,
+                   FCogDebugShape::MakeCollisionShape(Shape,
+                                                      Location,
+                                                      Rotation,
+                                                      Shape.GetExtent(),
+                                                      Color,
+                                                      FCogDebug::Settings.Thickness,
+                                                      Settings.Persistent,
+                                                      Settings.DepthPriority));
+
+    // TODO: replicate overlap results
+}
 
 //--------------------------------------------------------------------------------------------------------------------------
 void FCogDebugDraw::ReplicateShape(const UObject* WorldContextObject, const FCogDebugShape& Shape)
@@ -670,6 +761,114 @@ void FCogDebugDraw::ReplicateShape(const UObject* WorldContextObject, const FCog
         }
             
         Replicator->ReplicatedShapes.Add(Shape);
+    }
+}
+
+//--------------------------------------------------------------------------------------------------------------------------
+void FCogDebugDraw::ReplicateHitResults(const UObject* WorldContextObject, const TArray<FHitResult>& HitResults, const FCogDebugDrawLineTraceParams& Settings)
+{
+    TSet<const UPrimitiveComponent*> AlreadyDrawnPrimitives;
+    TSet<const AActor*>              AlreadyDrawnActors;
+
+    for (const FHitResult& HitResult : HitResults)
+    {
+        const FColor& HitColor = Settings.HitColor;
+
+        if (Settings.DrawHitLocation)
+        {
+            ReplicateShape(WorldContextObject,
+                FCogDebugShape::MakePoint(HitResult.Location,
+                    Settings.HitPointSize,
+                    HitColor,
+                    Settings.Persistent,
+                    Settings.DepthPriority));
+        }
+
+        if (Settings.DrawHitImpactPoints)
+        {
+            ReplicateShape(WorldContextObject,
+                FCogDebugShape::MakePoint(HitResult.ImpactPoint,
+                    Settings.HitPointSize,
+                    HitColor,
+                    Settings.Persistent,
+                    Settings.DepthPriority));
+        }
+
+        if (Settings.DrawHitNormals)
+        {
+            ReplicateShape(WorldContextObject,
+                FCogDebugShape::MakeArrow(HitResult.Location,
+                    HitResult.Location + HitResult.Normal * 20.0f,
+                    FCogDebug::Settings.ArrowSize,
+                    HitColor,
+                    Settings.Thickness,
+                    Settings.Persistent,
+                    Settings.DepthPriority));
+        }
+
+        if (Settings.DrawHitImpactNormals)
+        {
+            ReplicateShape(WorldContextObject,
+                FCogDebugShape::MakeArrow(HitResult.ImpactPoint,
+                    HitResult.Location + HitResult.ImpactNormal * 20.0f,
+                    FCogDebug::Settings.ArrowSize,
+                    HitColor,
+                    Settings.Thickness,
+                    Settings.Persistent,
+                    Settings.DepthPriority));
+        }
+
+        if (Settings.DrawHitPrimitives)
+        {
+            const UPrimitiveComponent* PrimitiveComponent = HitResult.GetComponent();
+            if (PrimitiveComponent == nullptr)
+            {
+                continue;
+            }
+
+            if (AlreadyDrawnPrimitives.Contains(PrimitiveComponent))
+            {
+                continue;
+            }
+
+            const UBoxComponent* BoxComponent = Cast<UBoxComponent>(PrimitiveComponent);
+            const FCollisionShape Shape = PrimitiveComponent->GetCollisionShape();
+
+            AlreadyDrawnPrimitives.Add(PrimitiveComponent);
+            const ECollisionChannel CollisionObjectType = PrimitiveComponent->GetCollisionObjectType();
+            const FColor            PrimitiveColor = Settings.ChannelColors[CollisionObjectType];
+
+            if (Shape.ShapeType == ECollisionShape::Box && BoxComponent == nullptr)
+            {
+                FVector Location;
+                FVector Extent;
+                PrimitiveComponent->Bounds.GetBox().GetCenterAndExtents(Location, Extent);
+
+                // TODO: this adds padding to prevent Z fight. Maybe add this as a parameter.
+                Extent += FVector::OneVector;
+
+                ReplicateShape(WorldContextObject,
+                    FCogDebugShape::MakeBox(Location,
+                        FRotator::ZeroRotator,
+                        Extent,
+                        PrimitiveColor,
+                        Settings.Thickness,
+                        Settings.Persistent,
+                        Settings.DepthPriority));
+            }
+            else
+            {
+                ReplicateShape(WorldContextObject,
+                    FCogDebugShape::MakeCollisionShape(Shape,
+                        PrimitiveComponent->GetComponentLocation(),
+                        PrimitiveComponent->GetComponentQuat(),
+                        Shape.GetExtent(),
+                        PrimitiveColor,
+                        Settings.Thickness,
+                        Settings.Persistent,
+                        Settings.DepthPriority));
+            }
+        }
     }
 }
 
