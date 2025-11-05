@@ -36,6 +36,7 @@ public class CogAI : ModuleRules
                 "CoreUObject",
                 "Engine",
                 "AIModule",
+                "GameplayStateTreeModule",
             }
             );
         

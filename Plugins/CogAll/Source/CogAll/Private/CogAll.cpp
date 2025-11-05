@@ -9,6 +9,7 @@
 #include "CogAbilityWindow_Tweaks.h"
 #include "CogAIWindow_BehaviorTree.h"
 #include "CogAIWindow_Blackboard.h"
+#include "CogAIWindow_StateTree.h"
 #include "CogEngineWindow_Cheats.h"
 #include "CogEngineWindow_CollisionTester.h"
 #include "CogEngineWindow_CollisionViewer.h"
@@ -124,6 +125,8 @@ void Cog::AddAllWindows(UCogWindowManager& CogWindowManager)
     CogWindowManager.AddWindow<FCogAIWindow_BehaviorTree>("AI.Behavior Tree");
 
     CogWindowManager.AddWindow<FCogAIWindow_Blackboard>("AI.Blackboard");
+
+    CogWindowManager.AddWindow<FCogAIWindow_StateTree>("AI.State Tree");
 
     //---------------------------------------
     // Input
